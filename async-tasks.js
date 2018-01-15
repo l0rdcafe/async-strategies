@@ -5,6 +5,24 @@ const Runner = function(strat) {
   };
 };
 
+const coroutineRunner = function(genFunc) {
+  const genObj = genFunc();
+
+  function step({ value, done }) {
+    if (!done) {
+      value
+        .then(res => {
+          step(genObj.next(res));
+        })
+        .catch(err => {
+          step(genObj.throw(err));
+        });
+    }
+  }
+
+  step(genObj.next());
+};
+
 // Ex 1: serial, callbacks, no fail
 
 const serialCbNoFail = function() {
@@ -516,4 +534,145 @@ const parallelAsyncAwaitWithFail = async function() {
   }
 };
 
-new Runner(parallelAsyncAwaitWithFail).run();
+// Ex 15: coroutines, serial, no fail
+
+const coroutinesSerialNoFail = function() {
+  function task1() {
+    return new Promise(resolve => {
+      console.log("Task 1 has started");
+      setTimeout(resolve, 3000);
+    });
+  }
+
+  function task2() {
+    return new Promise(resolve => {
+      console.log("Task 2 has started");
+      setTimeout(resolve, 3000);
+    });
+  }
+  coroutineRunner(function*() {
+    yield task1();
+    console.log("Task 1 completed");
+    yield task2();
+    console.log("Task 2 completed");
+    console.log("All tasks completed");
+  });
+};
+
+// Ex 16: coroutines, parallel, no fail
+
+const coroutinesParallelNoFail = function() {
+  function task1() {
+    return new Promise(resolve => {
+      console.log("Task 1 has started");
+      setTimeout(() => {
+        resolve("Task 1 completed");
+      }, 7000);
+    });
+  }
+  function task2() {
+    return new Promise(resolve => {
+      console.log("Task 2 has started");
+      setTimeout(() => {
+        resolve("Task 2 completed");
+      }, 5000);
+    });
+  }
+
+  coroutineRunner(function*() {
+    const results = yield Promise.all([task1(), task2()]);
+    results.forEach(msg => {
+      console.log(msg);
+    });
+    console.log("All tasks completed");
+  });
+};
+
+// Ex 17: coroutines, serial, with fail
+
+const coroutinesSerialWithFail = function() {
+  function task1() {
+    return new Promise((resolve, reject) => {
+      console.log("Task 1 has started");
+
+      setTimeout(() => {
+        if (Math.random() < 0.5) {
+          reject(new Error("Task 1 failed"));
+        } else {
+          resolve();
+        }
+      }, 3000);
+    });
+  }
+
+  function task2() {
+    return new Promise((resolve, reject) => {
+      console.log("Task 2 has started");
+      setTimeout(() => {
+        if (Math.random() > 0.5) {
+          reject(new Error("Task 2 failed"));
+        } else {
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+  coroutineRunner(function*() {
+    try {
+      yield task1();
+      console.log("Task 1 completed");
+      yield task2();
+      console.log("Task 2 completed");
+      console.log("All tasks completed");
+    } catch (e) {
+      console.error(e);
+    }
+  });
+};
+
+// Ex 18: coroutines, parallel, with fail
+
+const coroutinesParallelWithFail = function() {
+  function task1() {
+    return new Promise((resolve, reject) => {
+      console.log("Task 1 has started");
+
+      setTimeout(() => {
+        if (Math.random() < 0.5) {
+          reject(new Error("Task 1 failed"));
+        } else {
+          resolve("Task 1 completed");
+        }
+      }, 3000);
+    });
+  }
+
+  function task2() {
+    return new Promise((resolve, reject) => {
+      console.log("Task 2 has started");
+
+      setTimeout(() => {
+        if (Math.random() > 0.5) {
+          reject(new Error("Task 2 failed"));
+        } else {
+          resolve("Task 2 completed");
+        }
+      }, 6000);
+    });
+  }
+
+  coroutineRunner(function*() {
+    try {
+      const results = yield Promise.all([task1(), task2()]);
+      results.forEach(msg => {
+        console.log(msg);
+      });
+
+      console.log("All tasks completed");
+    } catch (e) {
+      console.error(e);
+    }
+  });
+};
+
+new Runner(coroutinesParallelWithFail).run();
